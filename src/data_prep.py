@@ -2,6 +2,8 @@ import pandas as pd
 import numpy as np 
 import kagglehub
 import os
+import re
+import string
 
 from sklearn.model_selection import train_test_split
 
@@ -18,10 +20,11 @@ def download_data():
 	fake_df["label"] = 0
 
 	df = pd.concat([real_df, fake_df], axis=0).reset_index(drop=True)
+	df.dropna()
 
 	return df 
 
-def prepocess_subject(df):
+def preprocess_subject(df):
 
 	print("Custom subject preprocessing")
 
@@ -32,12 +35,12 @@ def prepocess_subject(df):
 	df.loc[df["subject"] == 'left-news', "subject"] = 'left'
 	df.loc[df["subject"] == 'Middle-east', "subject"] = 'middle-east'
 	df.loc[df["subject"] == 'News', "subject"] = 'news'
-
-	df["full_text"] = (df["title"] + " " + df["text"]).apply(clean_text)
 	
 	print('unique subjects: ', df['subject'].unique())
 	print('df dtypes: ', df.dtypes)
 
+	df["clean_text"] = (df["title"] + " " + df["text"]).apply(clean_text)
+	
 	return df 
 
 def clean_text(text):
