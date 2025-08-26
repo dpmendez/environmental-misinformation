@@ -2,6 +2,13 @@ import plotly.figure_factory as ff
 import numpy as np
 from sklearn.metrics import confusion_matrix
 
+
+color_discrete_map = {
+    "Fake": "#d95f5f",  # muted red
+    "Real": "#5f9fd9"   # muted blue
+}
+
+
 def plotly_confusion_matrix(y_true, y_pred, labels=None, title="Confusion Matrix"):
     # Infer labels if not provided
     if labels is None:
@@ -29,7 +36,8 @@ def plotly_confusion_matrix(y_true, y_pred, labels=None, title="Confusion Matrix
         x=labels,
         y=labels,
         annotation_text=z_text,
-        colorscale="RdYlGn_r",
+        # colorscale=[ [0, '#d95f5f'], [1, '#5f9fd9'] ],  # low = red, high = blue
+        colorscale="Blues",
         showscale=True
     )
     
