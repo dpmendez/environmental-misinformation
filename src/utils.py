@@ -5,14 +5,66 @@ import os
 import re
 import string
 
+from datasets import load_dataset
+from sklearn.model_selection import train_test_split
+
 import torch
 from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer
 
-from sklearn.model_selection import train_test_split
-
 
 def download_data():
+
+	# 1. Load Climate-FEVER
+	# Climate-FEVER has: claim(text) and claim_label(label)
+	cf = load_dataset("tdiggelm/climate_fever")
+	cf_full = pd.DataFrame(cf["train"]+cf["validation"]+cf["test"])
+	cf_full = cf_full[["claim", "claim_label"]].rename(columns={
+		"claim": "text",
+		"claim_label": "label"
+	})
+
+	# 2. Load ClimateMiSt
+	# ClimateMiSt has: sentence (text), stance_label(label)
+	cm = load_dataset("Yale-LILY/climate_mist")
+	cm_full = pd.DataFrame(cm["train"]+cm["validation"]+cm["test"])
+	cm_full = cm_full[["sentence", "stance_label"]].rename(columns={
+		"sentence": "text"
+		"stance_label": "label"
+	})
+
+	# 3. Normalize labels
+	# Climate-FEVER: SUPPORTS/REFUTES/NOT_ENOUGH_INFO
+	# ClimateMiSt: AGREE/DISAGREE/NEUTRAL
+	# Let's map labels to an unified scheme
+	label_map = {
+	    "SUPPORTS": "SUPPORTS",
+	    "AGREE": "SUPPORTS",
+	    "REFUTES": "REFUTES",
+	    "DISAGREE": "REFUTES",
+	    "NOT_ENOUGH_INFO": "NEUTRAL",
+	    "NEUTRAL": "NEUTRAL"
+	}
+
+	cf_full["label"] = cf_full["label"].map(label_map)
+	cm_full["label"] = cm_full["label"].map(label_map)
+
+	# 4. Combine datasets
+	df = pd.concat([cf_full, cm_full], ignore_index=True)
+
+	# 5. Some print-outs
+	print("Climate-FEVER shape:", cf_full.shape)
+	print("ClimateMiSt shape:", cm_full.shape)
+	print("Combined shape:", df.shape)
+	print("\nLabel distribution:\n", df["label"].value_counts())
+
+	print(df.head())
+	print(df.tail())
+
+	return df
+
+
+def download_kaggle_data():
 
 	path = kagglehub.dataset_download("clmentbisaillon/fake-and-real-news-dataset")
 	print("Path to dataset files: ", path)
@@ -26,10 +78,10 @@ def download_data():
 
 	df = pd.concat([real_df, fake_df], axis=0).reset_index(drop=True)
 
-	return df 
+	return df
 
 
-def preprocess_subject(df, include_title=True):
+def preprocess_kaggle_subject(df, include_title=True):
 
 	print("Custom subject preprocessing")
 
@@ -46,11 +98,10 @@ def preprocess_subject(df, include_title=True):
 
 	df.dropna(subset=['title', 'text'], inplace=True)
 
-    # Decide what to clean
-    if include_title:
-    	df["clean_text"] = (df["title"] + " " + df["text"]).apply(clean_text)
-    else: 
-    	df["clean_text"] = df["text"].apply(clean_text)
+	if include_title:
+		df["clean_text"] = (df["title"] + " " + df["text"]).apply(clean_text)
+	else:
+		df["clean_text"] = df["text"].apply(clean_text)
 
 	# Remove rows where clean_text is empty
 	df = df[df['clean_text'].str.strip() != ""]
@@ -70,7 +121,18 @@ def clean_text(text):
 
 
 # Split into training, validation and test sets
-def split_data(texts, labels, extras):
+def split_data(texts, labels):
+	# 70, 15, 15 split
+	train_texts, temp_texts, train_labels, temp_labels = train_test_split(texts, labels, test_size=0.3, random_state=42)
+	val_texts, test_texts, val_labels, test_labels = train_test_split(temp_texts, temp_labels, test_size=0.5, random_state=42)
+
+	return {'x_train': train_texts, 'y_train': train_labels,
+			'x_test': test_texts, 'y_test': test_labels,
+			'x_val': val_texts, 'y_val': val_labels}
+
+
+# Split into training, validation and test sets
+def split_data_extras(texts, labels, extras):
 	# 70, 15, 15 split
 	train_texts, temp_texts, train_labels, temp_labels, train_extras, temp_extras = train_test_split(texts, labels, extras, test_size=0.3, random_state=42)
 	val_texts, test_texts, val_labels, test_labels, val_extras, test_extras = train_test_split(temp_texts, temp_labels, temp_extras, test_size=0.5, random_state=42)

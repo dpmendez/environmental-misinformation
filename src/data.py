@@ -6,10 +6,10 @@ def main():
 	df = download_data()
 
 	# remove empties and edit subjects
-	data_df = preprocess_subject(df)
+	df["clean_text"] = df["text"].apply(clen_text)
 
 	# split into train and test parts
-	data_split = split_data(df['clean_text'], df['label'], df['subject'])
+	data_split = split_data(df['clean_text'], df['label'])
 	print('\n\nsplit done')
 
 	# convert to dataframes
@@ -19,15 +19,12 @@ def main():
 	y_train = pd.Series(data_split['y_train'], name='label')
 	y_test = pd.Series(data_split['y_test'], name='label')
 	y_val = pd.Series(data_split['y_val'], name='label')
-	domain_train = pd.Series(data_split['z_train'], name='domain')
-	domain_test = pd.Series(data_split['z_test'], name='domain')
-	domain_val = pd.Series(data_split['z_val'], name='domain')
 	print('df conversion done')
 
 	# concatenate features with labels and domains
-	train_df = pd.concat([x_train, y_train, domain_train], axis=1)
-	test_df = pd.concat([x_test, y_test, domain_test], axis=1)
-	val_df = pd.concat([x_val, y_val, domain_val], axis=1)
+	train_df = pd.concat([x_train, y_train], axis=1)
+	test_df = pd.concat([x_test, y_test], axis=1)
+	val_df = pd.concat([x_val, y_val], axis=1)
 	print('concatenation done')
 
 	# save to csv
