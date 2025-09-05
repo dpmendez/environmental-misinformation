@@ -15,46 +15,35 @@ from transformers import AutoTokenizer
 
 def download_data():
 
-	# 1. Load Climate-FEVER
+	# Load Climate-FEVER
 	# Climate-FEVER has: claim(text) and claim_label(label)
 	cf = load_dataset("tdiggelm/climate_fever")
-	cf_full = pd.DataFrame(cf["train"]+cf["validation"]+cf["test"])
+	cf_full = pd.DataFrame(cf["test"])
 	cf_full = cf_full[["claim", "claim_label"]].rename(columns={
 		"claim": "text",
 		"claim_label": "label"
 	})
 
-	# 2. Load ClimateMiSt
-	# ClimateMiSt has: sentence (text), stance_label(label)
-	cm = load_dataset("Yale-LILY/climate_mist")
-	cm_full = pd.DataFrame(cm["train"]+cm["validation"]+cm["test"])
-	cm_full = cm_full[["sentence", "stance_label"]].rename(columns={
-		"sentence": "text"
-		"stance_label": "label"
-	})
-
-	# 3. Normalize labels
+	# Normalize labels
 	# Climate-FEVER: SUPPORTS/REFUTES/NOT_ENOUGH_INFO
-	# ClimateMiSt: AGREE/DISAGREE/NEUTRAL
 	# Let's map labels to an unified scheme
 	label_map = {
+	    0 : "SUPPORTS",
+	    1 : "REFUTES",
+	    2 : "NEUTRAL",
 	    "SUPPORTS": "SUPPORTS",
-	    "AGREE": "SUPPORTS",
 	    "REFUTES": "REFUTES",
-	    "DISAGREE": "REFUTES",
-	    "NOT_ENOUGH_INFO": "NEUTRAL",
-	    "NEUTRAL": "NEUTRAL"
+	    "NOT_ENOUGH_INFO": "NEUTRAL"
 	}
 
 	cf_full["label"] = cf_full["label"].map(label_map)
-	cm_full["label"] = cm_full["label"].map(label_map)
 
-	# 4. Combine datasets
-	df = pd.concat([cf_full, cm_full], ignore_index=True)
+	# # Combine datasets
+	# df = pd.concat([cf_full, cm_full], ignore_index=True)
+	df = cf_full.copy()
 
-	# 5. Some print-outs
+	# Some print-outs
 	print("Climate-FEVER shape:", cf_full.shape)
-	print("ClimateMiSt shape:", cm_full.shape)
 	print("Combined shape:", df.shape)
 	print("\nLabel distribution:\n", df["label"].value_counts())
 

@@ -6,7 +6,7 @@ def main():
 	df = download_data()
 
 	# remove empties and edit subjects
-	df["clean_text"] = df["text"].apply(clen_text)
+	df["clean_text"] = df["text"].apply(clean_text)
 
 	# split into train and test parts
 	data_split = split_data(df['clean_text'], df['label'])
