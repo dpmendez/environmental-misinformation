@@ -25,12 +25,13 @@ def download_data():
 	})
 
 	# Normalize labels
-	# Climate-FEVER: SUPPORTS/REFUTES/NOT_ENOUGH_INFO
+	# Climate-FEVER: SUPPORTS/REFUTES/NEUTRAL/DISPUTED
 	# Let's map labels to an unified scheme
 	label_map = {
 	    0 : "SUPPORTS",
 	    1 : "REFUTES",
 	    2 : "NEUTRAL",
+	    3 : "DISPUTED",
 	    "SUPPORTS": "SUPPORTS",
 	    "REFUTES": "REFUTES",
 	    "NOT_ENOUGH_INFO": "NEUTRAL"
