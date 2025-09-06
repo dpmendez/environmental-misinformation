@@ -132,6 +132,45 @@ def split_data_extras(texts, labels, extras):
 			'x_val': val_texts, 'y_val': val_labels, 'z_val': val_extras}
 
 
+# Get model features from LR, RF, XGB
+def get_feature_importance(this_model, top_n=10):
+    clf = this_model.named_steps["classifier"]
+    feature_names = this_model.named_steps["preprocessor"].get_feature_names_out()
+    feature_names = [f.replace("text__", "") for f in feature_names]
+
+    # Logistic Regression → coefficients
+    if hasattr(clf, "coef_"):
+        feature_weights_list = []
+        for i, label in enumerate(clf.classes_):
+            df_i = pd.DataFrame({
+                "Feature": feature_names,
+                "Weight": clf.coef_[i],
+                "Label": label
+            })
+            feature_weights_list.append(df_i)
+        feature_weights = pd.concat(feature_weights_list)
+
+        # Top positive + negative
+        top_features = []
+        for label in clf.classes_:
+            df_label = feature_weights[feature_weights["Label"] == label]
+            top_pos = df_label.sort_values("Weight", ascending=False).head(top_n)
+            top_neg = df_label.sort_values("Weight").head(top_n)
+            top_features.append(pd.concat([top_pos, top_neg]))
+        return pd.concat(top_features)
+
+    # RF / XGB → feature importances
+    elif hasattr(clf, "feature_importances_"):
+        feature_weights = pd.DataFrame({
+            "Feature": feature_names,
+            "Weight": clf.feature_importances_
+        }).sort_values("Weight", ascending=False)
+        return feature_weights.head(top_n)
+
+    else:
+        raise ValueError("Model does not support feature importance")
+
+
 # Create a PyTorch Dataset
 class NewsDataset(Dataset):
 
@@ -146,3 +185,5 @@ class NewsDataset(Dataset):
 		item = {key: val[idx] for key, val in self.encodings.items()}
 		item['labels'] = torch.tensor(self.labels[idx])
 		return item
+
+
