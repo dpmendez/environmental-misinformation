@@ -9,8 +9,11 @@ def get_article_links(pages=5):
     """Scrapre article URL from Climate Feedbacks's main feed."""
     links = []
     for page in range(1, pages + 1):
-        url = f"{BASE_URL}/reviews/?_topic=climate&pagination={page}"
-        print(url)
+        if page == 1:
+            url = f"{BASE_URL}/reviews/?_topic=climate"
+        else:
+            url = f"{BASE_URL}/reviews/?_topic=climate&_pagination={page}"
+        print(f"Fetching: {url}")
         resp = requests.get(url)
         
         if resp.status_code != 200:
