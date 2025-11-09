@@ -1,7 +1,8 @@
+import argparse
 import requests
-from bs4 import BeautifulSoup
 import pandas as pd
 import time
+from bs4 import BeautifulSoup
 
 BASE_URL = "https://science.feedback.org/reviews"
 TOPIC = "climate"
@@ -85,5 +86,20 @@ def scrape_climate_feedback(pages=5, delay=2):
     return df
 
 if __name__ == "__main__":
-    df = scrape_climate_feedback(pages=5)
+    parser = argparse.ArgumentParser(description="Scrape Climate Feedback pages (default: 5).")
+    parser.add_argument(
+        "--pages",
+        type=int,
+        default=5,
+        help="Number of pages to scrape (default: 5)"
+    )
+    parser.add_argument(
+        "--delay",
+        type=int,
+        default=2,
+        help="Delay (in seconds) between page requests to avoid rate limits (default: 2)"
+    )
+    args = parser.parse_args()
+
+    df = scrape_climate_feedback(pages=args.pages, delay=args.delay)
     print(df.head())
