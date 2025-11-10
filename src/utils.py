@@ -12,6 +12,31 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer
 
+def map_sf_label(label):
+    """
+    Map Science Feedback labels to unified scheme: SUPPORTS, REFUTES, NEUTRAL, DISPUTED.
+    """
+    if not isinstance(label, str):
+        return 'DISPUTED'  # fallback for missing or unexpected values
+
+    label_lower = label.lower()
+
+    # High confidence / correct -> SUPPORTS
+    if 'high' in label_lower or 'accurate' in label_lower or 'correct' in label_lower:
+        return 'SUPPORTS'
+
+    # low confidence / incorrect -> REFUTES
+    elif 'low' in label_lower or 'inaccurate' in label_lower or 'incorrect' in label_lower \
+         or 'misleading' in label_lower or 'unsupported' in label_lower or 'flawed' in label_lower:
+        return 'REFUTES'
+
+    # neutral / context unclear -> NEUTRAL
+    elif 'neutral' in label_lower or 'lacks context' in label_lower or 'imprecise' in label_lower:
+        return 'NEUTRAL'
+
+    # anything else -> DISPUTED
+    else:
+        return 'DISPUTED'
 
 def download_climatefever_data():
 
