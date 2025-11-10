@@ -13,7 +13,7 @@ from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer
 
 
-def download_data():
+def download_climatefever_data():
 
 	# Load Climate-FEVER
 	# Climate-FEVER has: claim(text) and claim_label(label)
