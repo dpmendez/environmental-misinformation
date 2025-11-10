@@ -2,8 +2,8 @@ from utils import *
 
 def main():
 
-	# dowload kaggle data
-	df = download_data()
+	# dowload climate fever data
+	df = download_climatefever_data()
 
 	# remove empties and edit subjects
 	df["clean_text"] = df["text"].apply(clean_text)
