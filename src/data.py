@@ -26,14 +26,14 @@ def prepare_data(source="climatefever", combine=False):
             df = download_climatefever_data()
             df["clean_text"] = df["text"].apply(clean_text)
             df = df.rename(columns={"clean_text": "text"})
-            tag = "-cf"
+            tag = "_cf"
         elif source == "sciencefeedback":
-            df = pd.read_csv("raw/climate_feedback_articles.csv")
+            df = pd.read_csv("../data/raw/climate_feedback_articles.csv")
             df["unified_label"] = df["verdict"].apply(map_sf_label)
             df = df.dropna(subset=["claim", "unified_label"])
             df["clean_text"] = df["claim"].apply(clean_text)
             df = df.rename(columns={"unified_label": "label", "clean_text": "text"})
-            tag = "-sf"
+            tag = "_sf"
         else:
             raise ValueError("Unknown source. Choose 'climatefever' or 'sciencefeedback'")
 
