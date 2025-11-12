@@ -12,9 +12,8 @@ The goal of this project is to:
 
 #### 📊 Data
 
-* Kaggle Fake and Real News Dataset (baseline).
 * Climate Feedback fact-check articles (environment-specific ground truth).
-* Optional: FakeNewsNet or scraped environmental news.
+* Scraped climate news from Science Feedback.
 
 Data is preprocessed into train/validation/test splits with balanced label distributions.
 
