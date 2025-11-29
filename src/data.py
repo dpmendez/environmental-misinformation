@@ -44,7 +44,14 @@ def prepare_data(source="climatefever", combine=True):
 
     print("Label distribution:")
     print(df["label"].value_counts())
-    df["label"] = df["label"].replace({"DISPUTED": "NEUTRAL"}) # replace DISPUTED with NEUTRAL as there are too few examples
+    
+    # Collapse labels into two as there are too few examples
+    df["label"] = df["label"].replace({
+        "SUPPORTS": "LIKELY_TRUE",
+        "NEUTRAL": "LIKELY_TRUE",
+        "REFUTES": "LIKELY_FALSE",
+        "DISPUTED": "LIKELY_FALSE"
+    })
 
     # ----- Split -----
     X_train, X_temp, y_train, y_temp = train_test_split(
@@ -73,4 +80,4 @@ def prepare_data(source="climatefever", combine=True):
     return train_df, val_df, test_df
 
 if __name__ == "__main__":
-    prepare_data(source="climatefever")
+    prepare_data(source="sciencefeedback")
