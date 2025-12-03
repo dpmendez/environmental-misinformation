@@ -4,9 +4,10 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import LinearSVC
+from transformers import Trainer
 #from xgboost import XGBClassifier
 
-from sklearn.metrics import precision_recall_fscore_support
+import torch.nn as nn
 
 def train_classic_model(x_train, y_train,
                         model_type="logreg",
@@ -37,3 +38,25 @@ def train_classic_model(x_train, y_train,
     
     clf.fit(x_train, y_train)
     return clf
+
+# Weighted Trainer to handle label imbalance
+class WeightedTrainer(Trainer):
+    def __init__(self, class_weights=None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if class_weights is not None:
+            self.class_weights = torch.tensor(class_weights, dtype=torch.float).to(self.model.device)
+        else:
+            self.class_weights = None
+
+    def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
+        labels = inputs.get("labels")
+        outputs = model(**inputs)
+        logits = outputs.get("logits")
+
+        if self.class_weights is not None:
+            loss_fct = nn.CrossEntropyLoss(weight=self.class_weights)
+        else:
+            loss_fct = nn.CrossEntropyLoss()
+
+        loss = loss_fct(logits.view(-1, self.model.config.num_labels), labels.view(-1))
+        return (loss, outputs) if return_outputs else loss
