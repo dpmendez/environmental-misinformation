@@ -4,6 +4,46 @@ import os
 import numpy as np
 from utils import *
 
+def download_climatefever_data():
+
+	# Load Climate-FEVER
+	# Climate-FEVER has: claim(text) and claim_label(label)
+	cf = load_dataset("tdiggelm/climate_fever")
+	cf_full = pd.DataFrame(cf["test"])
+	cf_full = cf_full[["claim", "claim_label"]].rename(columns={
+		"claim": "text",
+		"claim_label": "label"
+	})
+
+	# Normalize labels
+	# Climate-FEVER: SUPPORTS/REFUTES/NEUTRAL/DISPUTED
+	# Let's map labels to an unified scheme
+	label_map = {
+	    0 : "SUPPORTS",
+	    1 : "REFUTES",
+	    2 : "NEUTRAL",
+	    3 : "DISPUTED",
+	    "SUPPORTS": "SUPPORTS",
+	    "REFUTES": "REFUTES",
+	    "NOT_ENOUGH_INFO": "NEUTRAL"
+	}
+
+	cf_full["label"] = cf_full["label"].map(label_map)
+
+	# # Combine datasets
+	# df = pd.concat([cf_full, cm_full], ignore_index=True)
+	df = cf_full.copy()
+
+	# Some print-outs
+	print("Climate-FEVER shape:", cf_full.shape)
+	print("Combined shape:", df.shape)
+	print("\nLabel distribution:\n", df["label"].value_counts())
+
+	print(df.head())
+	print(df.tail())
+
+	return df
+
 def prepare_data(source="climatefever", combine=True):
     """
     Prepare train/val/test CSVs from either Climate-FEVER or Science Feedback.
