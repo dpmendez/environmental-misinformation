@@ -7,6 +7,7 @@ from sklearn.svm import LinearSVC
 from transformers import Trainer
 #from xgboost import XGBClassifier
 
+import torch
 import torch.nn as nn
 
 def train_classic_model(x_train, y_train,
@@ -43,20 +44,46 @@ def train_classic_model(x_train, y_train,
 class WeightedTrainer(Trainer):
     def __init__(self, class_weights=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Store class weights as tensor but defer device placement until compute_loss
         if class_weights is not None:
-            self.class_weights = torch.tensor(class_weights, dtype=torch.float).to(self.model.device)
+            self.class_weights = torch.tensor(class_weights, dtype=torch.float)
         else:
             self.class_weights = None
 
     def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
+        # Accept either 'label' or 'labels' keys coming from the dataset / data collator.
+        # Map 'label' -> 'labels' so the model receives the expected argument name.
+        if "label" in inputs and "labels" not in inputs:
+            inputs["labels"] = inputs.pop("label")
+        elif "labels" in inputs:
+            # already present, nothing to do
+            pass
+        else:
+            raise KeyError("Expected 'label' or 'labels' key in inputs but not found. Ensure dataset set_format includes the label column.")
+
+        # Move tensors to the model device to avoid device-mismatch errors
+        device = model.device
+        for k, v in list(inputs.items()):
+            if isinstance(v, torch.Tensor):
+                inputs[k] = v.to(device)
+
         labels = inputs.get("labels")
-        outputs = model(**inputs)
+
+        # Forward pass
+        outputs = model(**{k: v for k, v in inputs.items() if k in ("input_ids", "attention_mask", "token_type_ids", "labels")})
         logits = outputs.get("logits")
 
+        # Place class weights on correct device if provided
         if self.class_weights is not None:
-            loss_fct = nn.CrossEntropyLoss(weight=self.class_weights)
+            weight = self.class_weights.to(device)
+            loss_fct = nn.CrossEntropyLoss(weight=weight)
         else:
             loss_fct = nn.CrossEntropyLoss()
 
-        loss = loss_fct(logits.view(-1, self.model.config.num_labels), labels.view(-1))
+        if labels is None:
+            # If no labels provided, return zero loss and outputs (this scenario should not happen during training)
+            loss = torch.tensor(0.0, device=device)
+        else:
+            loss = loss_fct(logits.view(-1, model.config.num_labels), labels.view(-1))
+
         return (loss, outputs) if return_outputs else loss
