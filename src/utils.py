@@ -108,7 +108,25 @@ def get_feature_importance(this_model, top_n=10):
 
     else:
         raise ValueError("Model does not support feature importance")
-
+        
+def compute_metrics(p):
+     accuracy = load("accuracy")
+     precision = load("precision")
+     recall = load("recall")
+     f1 = load("f1")
+     preds = np.argmax(p.predictions, axis=1)
+     refs = p.label_ids # truth
+     acc = accuracy.compute(predictions=preds, references=refs)
+     prec = precision.compute(predictions=preds, references=refs, average="weighted")
+     rec = recall.compute(predictions=preds, references=refs, average="weighted")
+     f1_score = f1.compute(predictions=preds, references=refs, average="weighted")
+     return {
+        "accuracy": acc["accuracy"],
+        "precision": prec["precision"],
+        "recall": rec["recall"],
+        "f1": f1_score["f1"]
+          }
+    
 # Create a PyTorch Dataset
 class NewsDataset(Dataset):
 
