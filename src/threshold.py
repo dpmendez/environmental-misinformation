@@ -17,9 +17,9 @@ def find_optimal_threshold(model, tokenizer, val_dataset, false_label_id,
     false_label_id : int
         Numeric ID of the "likely_false" class.
     harmful_cost : float
-        Cost of FN (= predict true when false).
+        Cost of FP (= predict true when false).
     benign_cost : float
-        Cost of FP (= predict false when true).
+        Cost of FN (= predict false when true).
     batch_size : int
     device : torch.device
 
@@ -72,18 +72,19 @@ def find_optimal_threshold(model, tokenizer, val_dataset, false_label_id,
     # Evaluate thresholds
     # ------------------------------------------
     thresholds = np.linspace(0, 1, 101)
-    harmful_errors = []
-    benign_errors = []
+    harmful_errors = [] # fp
+    benign_errors = []  # fn
     total_harm = []
 
     for t in thresholds:
-        preds = (all_probs > t).astype(int)  # 1 = likely_false
+        # preds = (all_probs > t).astype(int) # likely_false
+        preds = np.where(all_probs >= t, 0, 1)
 
         tn, fp, fn, tp = confusion_matrix(all_labels, preds).ravel()
-
-        harmful_errors.append(fn)
-        benign_errors.append(fp)
-
+        
+        harmful_errors.append(fp)   # predicted TRUE when actually FALSE
+        benign_errors.append(fn)    # predicted FALSE when actually TRUE
+        
         harm = fn*harmful_cost + fp*benign_cost
         total_harm.append(harm)
 
