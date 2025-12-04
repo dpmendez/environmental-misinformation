@@ -8,6 +8,7 @@ import string
 from datasets import load_dataset
 from evaluate import load
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import f1_score, accuracy_score, recall_score, precision_score, balanced_accuracy_score
 
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -108,24 +109,22 @@ def get_feature_importance(this_model, top_n=10):
 
     else:
         raise ValueError("Model does not support feature importance")
-        
-def compute_metrics(p):
-     accuracy = load("accuracy")
-     precision = load("precision")
-     recall = load("recall")
-     f1 = load("f1")
-     preds = np.argmax(p.predictions, axis=1)
-     refs = p.label_ids # truth
-     acc = accuracy.compute(predictions=preds, references=refs)
-     prec = precision.compute(predictions=preds, references=refs, average="weighted")
-     rec = recall.compute(predictions=preds, references=refs, average="weighted")
-     f1_score = f1.compute(predictions=preds, references=refs, average="weighted")
-     return {
-        "accuracy": acc["accuracy"],
-        "precision": prec["precision"],
-        "recall": rec["recall"],
-        "f1": f1_score["f1"]
-          }
+
+def compute_metrics(eval_pred):
+    logits, labels = eval_pred
+    preds = np.argmax(logits, axis=1)
+
+    # minority class = likely_false = numeric ID 0
+    false_id = 0
+
+    return {
+        "accuracy": accuracy_score(labels, preds),
+        "balanced_accuracy": balanced_accuracy_score(labels, preds),
+        "f1_weighted": f1_score(labels, preds, average="weighted"),
+        "f1_false": f1_score(labels, preds, pos_label=false_id),
+        "recall_false": recall_score(labels, preds, pos_label=false_id),
+        "precision_false": precision_score(labels, preds, pos_label=false_id)
+    }
     
 # Create a PyTorch Dataset
 class NewsDataset(Dataset):
