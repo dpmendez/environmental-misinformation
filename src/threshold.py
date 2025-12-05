@@ -66,8 +66,8 @@ def find_optimal_threshold(model, tokenizer,
     # ------------------------------------------
     thresholds = np.linspace(0, 1, 101)
 
-    harmful_errors = []  # FN
-    benign_errors = []   # FP
+    harmful_errors = []  # FP
+    benign_errors = []   # FN
     total_harm = []
 
     for t in thresholds:
@@ -80,7 +80,6 @@ def find_optimal_threshold(model, tokenizer,
         harmful_errors.append(fp)
         benign_errors.append(fn)
 
-        # harm = fn * harmful_cost + fp * benign_cost
         harm = (fn * cost_FN + 
                 fp * cost_FP -
                 tp * benefit_TP -
