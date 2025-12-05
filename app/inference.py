@@ -5,11 +5,8 @@ import numpy as np
 import torch.nn.functional as F
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
-MODEL_PATH = "../notebooks/results/best_model"
-FALSE_LABEL_ID = 0  # likely_false
-
 class InferenceModel:
-    def __init__(self, model_dir=MODEL_PATH, false_label_id=FALSE_LABEL_ID):
+    def __init__(self, model_dir, false_label_id):
         """
         model_dir should contain:
             - config.json
@@ -30,14 +27,11 @@ class InferenceModel:
         with open(os.path.join(model_dir, "threshold.json")) as f:
             self.threshold = json.load(f)["best_threshold"]
 
-        # Load label maps
         with open(os.path.join(model_dir, "label_map.json")) as f:
             maps = json.load(f)
-            self.label2id = maps["label2id"]
-            self.id2label = {int(k): v for k, v in maps["id2label"].items()}
-
-        # Determine false label ID (likely_false)
-        self.false_label_id = false_label_id
+        self.label2id = maps["label2id"]
+        self.id2label = maps["id2label"]
+        self.false_id = self.label2id["LIKELY_FALSE"]
 
     def predict(self, claim, max_length=256):
         """
