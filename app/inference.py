@@ -29,9 +29,11 @@ class InferenceModel:
 
         with open(os.path.join(model_dir, "label_map.json")) as f:
             maps = json.load(f)
-        self.label2id = maps["label2id"]
-        self.id2label = maps["id2label"]
-        self.false_id = self.label2id["LIKELY_FALSE"]
+        self.label2id = {k: int(v) for k, v in maps["label2id"].items()}
+        self.id2label = {int(k): v for k, v in maps["id2label"].items()}
+        self.false_label_id = int(false_label_id)
+
+        print("ID2LABEL:", self.id2label)
 
     def predict(self, claim, max_length=256):
         """
