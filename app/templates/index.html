@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Environmental Misinformation Classifier</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+    <div class="container">
+
+        <!-- Dark Mode Toggle -->
+        <button id="toggleDark">Dark Mode</button>
+
+        <h1>Claims Classifier</h1>
+        <p class="subtitle">Compare predictions from two NLP models side-by-side</p>
+
+        <textarea id="claimInput" placeholder="Enter a claim such as: 'CO2 emissions contribute to global warming.'"></textarea>
+        <label for="modelSelect" class="subtitle" style="margin-top:15px; display:block;">
+            Select model:
+        </label>
+
+        <select id="modelSelect" style="padding:10px; width:100%; border-radius:10px; margin-bottom:15px;">
+            <option value="baseline">Baseline</option>
+            <option value="thresholded">Thresholded</option>
+        </select>
+        <button id="predictBtn">Run Analysis</button>
+
+        <div id="loader" class="loader hidden"></div>
+
+        <div id="results" class="results hidden"></div>
+
+    </div>
+
+<script>
+/* ---------------- DARK MODE ---------------- */
+document.getElementById("toggleDark").onclick = () => {
+    document.documentElement.classList.toggle("dark");
+};
+
+/* ---------------- PREDICTION LOGIC ---------------- */
+document.getElementById("predictBtn").onclick = async () => {
+    const text = document.getElementById("claimInput").value.trim();
+    const model = document.getElementById("modelSelect").value;  // <--- NEW
+
+    if (!text) return;
+
+    document.getElementById("results").classList.add("hidden");
+    document.getElementById("loader").classList.remove("hidden");
+
+    const response = await fetch("/predict_all", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, model })   // <--- SEND MODEL TO BACKEND
+    });
+
+    const data = await response.json();
+
+    document.getElementById("loader").classList.add("hidden");
+
+    const container = document.getElementById("results");
+    container.innerHTML = "";
+
+    /* data.results: [{model, pred_label, confidence, probabilities, threshold}] */
+    data.results.forEach(model => {
+        const card = document.createElement("div");
+        card.className = "model-card";
+
+        const title = document.createElement("h2");
+        title.textContent = model.model;
+        card.appendChild(title);
+
+        const pred = document.createElement("p");
+        pred.innerHTML = `<strong>Prediction:</strong> ${model.pred_label}`;
+        card.appendChild(pred);
+
+        const conf = document.createElement("p");
+        conf.innerHTML = `<strong>Confidence:</strong> ${model.confidence.toFixed(1)}%`;
+        card.appendChild(conf);
+
+        if (model.threshold !== null && model.threshold !== undefined) {
+            const thr = document.createElement("p");
+            thr.innerHTML = `<strong>Threshold:</strong> ${model.threshold}`;
+            card.appendChild(thr);
+        }
+
+        const probsDiv = document.createElement("div");
+        probsDiv.className = "prob-list";
+
+        Object.entries(model.probabilities).forEach(([label, prob]) => {
+            const bar = `
+                <div class="prob-item">
+                    <span>${label} — ${prob.toFixed(3)}</span>
+                    <div class="bar-container">
+                        <div class="bar" style="width:${prob * 100}%"></div>
+                    </div>
+                </div>`;
+            probsDiv.innerHTML += bar;
+        });
+
+        card.appendChild(probsDiv);
+        container.appendChild(card);
+    });
+
+    container.classList.remove("hidden");
+};
+</script>
+
+</body>
+</html>
