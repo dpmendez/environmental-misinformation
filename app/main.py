@@ -1,36 +1,55 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
-from inference import InferenceModel
-import os
-
-MODEL_1_DIR = "models/baseline_model"
-MODEL_2_DIR = "models/threshold_model"
-
-FALSE_LABEL_ID = 0  # LIKELY_FALSE
-
-class Claim(BaseModel):
-    text: str
+import uvicorn
 
 app = FastAPI() # Initialize the FastAPI app
 
-models = {
-    "baseline": InferenceModel(MODEL_1_DIR, "baseline", FALSE_LABEL_ID),
-    "thresholded": InferenceModel(MODEL_2_DIR, "thresholded", FALSE_LABEL_ID),
-}
+# Serve static assets (CSS)
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# Serve HTML templates
+templates = Jinja2Templates(directory="templates")
+
+# Request schema
+class Claim(BaseModel):
+    text: str
+    model: str = "thresholded" # default model
+
+# Home page
 @app.get("/")
-def read_root():
-    return {"message": "API is running!"}
+def home(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
 
-# Prediction endpoint
+from api_only import predict as backend_predict_all
+# Prediction API
 @app.post("/predict_all")
-def predict(claim: Claim):
-    """
-    claim: Claim  means the incoming JSON will be parsed into Claim(text="...")
-    """
-    results = {}
+def predict_all(payload: Claim):
 
-    for name, model in models.items():
-        results[name] = model.predict(claim.text)
+    # Send a Claim object to match api_only FastAPI behavior
+    backend_output = backend_predict_all(Claim(text=payload.text))
+    model_name = payload.model  # received from dropdown
 
-    return results
+    if model_name not in backend_output:
+        return {"error": f"Model '{model_name}' not found. Available: {list(backend_output.keys())}"}
+    
+    selected = backend_output[model_name]
+    
+    formatted = {
+        "results": [
+            {
+                "model": selected["model"],
+                "pred_label": selected["pred_label"],
+                "confidence": selected["confidence"],
+                "threshold": selected["threshold"],
+                "probabilities": selected["probabilities"],
+            }
+        ]
+    }
+
+    return formatted
+
+# Run app
+if __name__ == "__main__":
+    uvicorn.run(app, host="127.0.0.1", port=8000)
