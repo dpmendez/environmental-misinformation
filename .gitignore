@@ -1,0 +1,17 @@
+# Mac junk
+*.DS_Store
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Model directories (local only)
+app/models/
+*.safetensors
+*.bin
+
+# Jupyter temp
+.ipynb_checkpoints/
+
+# Data (if private)
+# data/
