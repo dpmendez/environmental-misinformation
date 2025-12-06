@@ -6,7 +6,7 @@ import torch.nn.functional as F
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
 class InferenceModel:
-    def __init__(self, model_dir, false_label_id):
+    def __init__(self, model_dir, model_name, false_label_id):
         """
         model_dir should contain:
             - config.json
@@ -15,6 +15,7 @@ class InferenceModel:
             - threshold.json
             - label_map.json
         """
+        self.model_name = model_name
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         # Load model and tokenizer
@@ -23,17 +24,22 @@ class InferenceModel:
         self.model.to(self.device)
         self.model.eval()
 
-        # Load threshold
-        with open(os.path.join(model_dir, "threshold.json")) as f:
-            self.threshold = json.load(f)["best_threshold"]
+        # Optional threshold
+        threshold_path = os.path.join(model_dir, "threshold.json")
+        if os.path.exists(threshold_path):
+            with open(threshold_path) as f:
+                self.threshold = json.load(f).get("best_threshold")
+        else:
+            self.threshold = None  # model may not use threshold
 
+        print(f"[Loaded Model] {model_name} | threshold={self.threshold}")
+        
+        # Load label mappings
         with open(os.path.join(model_dir, "label_map.json")) as f:
             maps = json.load(f)
         self.label2id = {k: int(v) for k, v in maps["label2id"].items()}
         self.id2label = {int(k): v for k, v in maps["id2label"].items()}
         self.false_label_id = int(false_label_id)
-
-        print("ID2LABEL:", self.id2label)
 
     def predict(self, claim, max_length=256):
         """
@@ -47,18 +53,25 @@ class InferenceModel:
             logits = self.model(**inputs).logits
             probs = F.softmax(logits, dim=1).cpu().numpy()[0]
 
-        p_false = probs[self.false_label_id]
-
-        # Apply threshold
-        if p_false >= self.threshold:
-            pred_id = self.false_label_id
-        else:
-            pred_id = 1 - self.false_label_id  # only valid for binary
-
+        # Default argmax prediction
+        pred_id = int(probs.argmax())
+        
+        # Apply threshold only if present (binary case)
+        if self.threshold is not None and len(probs) == 2:
+            if probs[self.false_label_id] >= self.threshold:
+                pred_id = self.false_label_id
+            else:
+                pred_id = 1 - self.false_label_id
+                
         return {
-            "pred_id": int(pred_id),
+            "text": claim,
+            "model": self.model_name,
+            "pred_id": pred_id,
             "pred_label": self.id2label[pred_id],
-            "probabilities": {self.id2label[i]: float(probs[i]) for i in range(len(probs))},
-            "threshold": self.threshold,
-            "text": claim
+            "confidence": round(float(probs[pred_id])*100,2),
+            "probabilities": {
+                self.id2label[i]: float(probs[i])
+                for i in range(len(probs))
+            },
+            "threshold": self.threshold
         }

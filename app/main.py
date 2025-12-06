@@ -3,24 +3,34 @@ from pydantic import BaseModel
 from inference import InferenceModel
 import os
 
-MODEL_PATH = "models/threshold_model"
-FALSE_LABEL_ID = 0  # likely_false
+MODEL_1_DIR = "models/baseline_model"
+MODEL_2_DIR = "models/threshold_model"
+
+FALSE_LABEL_ID = 0  # LIKELY_FALSE
 
 class Claim(BaseModel):
     text: str
 
 app = FastAPI() # Initialize the FastAPI app
-model = InferenceModel(MODEL_PATH, FALSE_LABEL_ID) # Load trained model
+
+models = {
+    "baseline": InferenceModel(MODEL_1_DIR, "baseline", FALSE_LABEL_ID),
+    "thresholded": InferenceModel(MODEL_2_DIR, "thresholded", FALSE_LABEL_ID),
+}
 
 @app.get("/")
 def read_root():
     return {"message": "API is running!"}
 
 # Prediction endpoint
-@app.post("/predict")
+@app.post("/predict_all")
 def predict(claim: Claim):
     """
     claim: Claim  means the incoming JSON will be parsed into Claim(text="...")
     """
-    result = model.predict(claim.text)
-    return result
+    results = {}
+
+    for name, model in models.items():
+        results[name] = model.predict(claim.text)
+
+    return results
