@@ -4,9 +4,10 @@ import torch
 import numpy as np
 import torch.nn.functional as F
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from huggingface_hub import hf_hub_download
 
 class InferenceModel:
-    def __init__(self, model_dir, model_name, false_label_id):
+    def __init__(self, model_dir, model_name, false_label_id, pull_hf=True, use_token=False):
         """
         model_dir should contain:
             - config.json
@@ -19,23 +20,38 @@ class InferenceModel:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         # Load model and tokenizer
-        self.tokenizer = AutoTokenizer.from_pretrained(model_dir)
-        self.model = AutoModelForSequenceClassification.from_pretrained(model_dir)
+        if pull_hf:
+            self.tokenizer = AutoTokenizer.from_pretrained(model_dir, use_auth_token=use_token)
+            self.model = AutoModelForSequenceClassification.from_pretrained(model_dir, use_auth_token=use_token)
+        else:
+            self.tokenizer = AutoTokenizer.from_pretrained(model_dir)
+            self.model = AutoModelForSequenceClassification.from_pretrained(model_dir)
+
         self.model.to(self.device)
         self.model.eval()
 
         # Optional threshold
         threshold_path = os.path.join(model_dir, "threshold.json")
-        if os.path.exists(threshold_path):
+        if pull_hf:
+            try:
+                threshold_path = hf_hub_download(repo_id=model_dir, filename="threshold.json", use_auth_token=use_token)
+            except:
+                threshold_path = None
+
+        if threshold_path and os.path.exists(threshold_path):
             with open(threshold_path) as f:
                 self.threshold = json.load(f).get("best_threshold")
         else:
-            self.threshold = None  # model may not use threshold
+            self.threshold = None # model may not use threshold
 
         print(f"[Loaded Model] {model_name} | threshold={self.threshold}")
         
         # Load label mappings
-        with open(os.path.join(model_dir, "label_map.json")) as f:
+        label_map_path = os.path.join(model_dir, "label_map.json")
+        if pull_hf:
+            label_map_path = hf_hub_download(repo_id=model_dir, filename="label_map.json", use_auth_token=use_token)
+
+        with open(label_map_path) as f:
             maps = json.load(f)
         self.label2id = {k: int(v) for k, v in maps["label2id"].items()}
         self.id2label = {int(k): v for k, v in maps["id2label"].items()}
