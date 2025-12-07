@@ -3,7 +3,9 @@ services:
     name: misinformation-ui
     env: python
     runtime: python3.11
-    plan: free
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    buildCommand: pip install -r requirements.txt
+    startCommand: cd app && uvicorn main:app --host 0.0.0.0 --port $PORT
     autoDeploy: true
+    build:
+      env:
+        PYTHON_VERSION: 3.11.14
