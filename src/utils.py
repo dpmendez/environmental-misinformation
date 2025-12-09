@@ -8,7 +8,7 @@ import string
 from datasets import load_dataset
 from evaluate import load
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import f1_score, accuracy_score, recall_score, precision_score, balanced_accuracy_score
+from sklearn.metrics import f1_score, accuracy_score, recall_score, precision_score, balanced_accuracy_score, classification_report
 
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -111,20 +111,54 @@ def get_feature_importance(this_model, top_n=10):
         raise ValueError("Model does not support feature importance")
 
 def compute_metrics(eval_pred):
-    logits, labels = eval_pred
-    preds = np.argmax(logits, axis=1)
+    """
+    Compute evaluation metrics.
 
-    # minority class = likely_false = numeric ID 0
+    Accepts either an (logits, labels) tuple, an EvalPrediction-like object
+    with .predictions and .label_ids, or (preds, labels) where preds may be
+    either logits/probabilities (2D) or already-decoded label ids (1D).
+    Returns a dict of scalar metrics and a classification_report dict under
+    the key 'classification_report'.
+    """
+    # Unpack EvalPrediction or tuple
+    if hasattr(eval_pred, "predictions") and hasattr(eval_pred, "label_ids"):
+        preds = eval_pred.predictions
+        labels = eval_pred.label_ids
+    else:
+        preds, labels = eval_pred
+
+    preds = np.asarray(preds)
+    labels = np.asarray(labels)
+
+    # If preds are logits/probabilities (2D), convert to label ids
+    if preds.ndim == 2:
+        pred_ids = np.argmax(preds, axis=1)
+    elif preds.ndim == 1:
+        # already predicted label ids
+        pred_ids = preds.astype(int)
+    else:
+        raise ValueError(f"Unsupported prediction shape: {preds.shape}")
+
     false_id = 0
 
-    return {
-        "accuracy": accuracy_score(labels, preds),
-        "balanced_accuracy": balanced_accuracy_score(labels, preds),
-        "f1_weighted": f1_score(labels, preds, average="weighted"),
-        "f1_false": f1_score(labels, preds, pos_label=false_id),
-        "recall_false": recall_score(labels, preds, pos_label=false_id),
-        "precision_false": precision_score(labels, preds, pos_label=false_id)
+    metrics = {
+        "accuracy": accuracy_score(labels, pred_ids),
+        "balanced_accuracy": balanced_accuracy_score(labels, pred_ids),
+        "f1_weighted": f1_score(labels, pred_ids, average="weighted"),
+        "f1_false": f1_score(labels, pred_ids, pos_label=false_id),
+        "recall_false": recall_score(labels, pred_ids, pos_label=false_id),
+        "precision_false": precision_score(labels, pred_ids, pos_label=false_id)
     }
+
+    # # Add sklearn classification report (as a dict) for per-class breakdown
+    # try:
+    #     cls_report = classification_report(labels, pred_ids, output_dict=True, zero_division=0)
+    #     metrics["classification_report"] = cls_report
+    # except Exception:
+    #     # if something goes wrong building the report, skip it but keep scalar metrics
+    #     pass
+
+    return metrics
     
 # Create a PyTorch Dataset
 class NewsDataset(Dataset):
@@ -140,5 +174,3 @@ class NewsDataset(Dataset):
 		item = {key: val[idx] for key, val in self.encodings.items()}
 		item['labels'] = torch.tensor(self.labels[idx])
 		return item
-
-
