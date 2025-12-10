@@ -13,6 +13,8 @@ The goal of this project is to:
 * Support NGOs and policymakers in identifying climate misinformation.
 * Provide a scalable pipeline to monitor public discourse around conservation issues.
 
+----------------------------
+
 #### 📊 Data
 
 * Climate Fever fact-check articles (environment-specific ground truth), dowloaded from https://huggingface.co/datasets/tdiggelm/climate_fever
@@ -31,6 +33,35 @@ Data is preprocessed into train/validation/test splits with balanced label distr
   * Optimizer: AdamW, with learning rate scheduling.
 * Evaluation Metrics: Balanced accuracy, f1-score (weighted), precision and recall (false).
 
+#### 📁 Project Components (Notebooks, Training Scripts, Evaluation Tools)
+The repository includes:
+##### 📓 Jupyter Notebooks (notebooks/)
+Notebooks walk through the full workflow:
+* Exploratory Data Analysis
+* Text preprocessing and dataset construction
+* Baseline model training (TF-IDF + XGBoost / Logistic Regression)
+* Transformer fine-tuning with Hugging Face
+* Training curves, confusion matrices, word clouds.
+
+##### 🧠 Training & Utility Code (src/)
+Contains modular code for:
+* Data preprocessing
+* Metrics computation
+* Baseline model pipelines
+* Transformer training loops
+
+##### 📈 Model Evaluation (eval.py)
+A standalone script that evaluates any saved model — transformer or sklearn. This is useful for reporting performance, generating metrics, and validating model checkpoints.
+Supports:
+* Hugging Face transformer models saved via save_pretrained
+* Sklearn Pipelines saved with joblib
+Outputs:
+* Accuracy, precision, recall, F1
+* Optional ROC curve & AUC
+* Confusion matrix
+
+----------------------------
+
 #### 🚀 Results (coming soon...)
 
 | Model                      | Balanced Accuracy | F1 (weighted) | Precision (false) | Recall (false)|
@@ -41,10 +72,14 @@ Data is preprocessed into train/validation/test splits with balanced label distr
 
 **Observations:**
 
+----------------------------
+
 ### 🖥️ Running the App (FastAPI + HTML)
 The project includes a FastAPI web interface for testing models.
 1. Install dependencies
-```cpp pip install -r requirements.txt ```
+```cpp
+pip install -r requirements.txt
+```
 
 3. Add or download a model
 You can either:
@@ -76,3 +111,12 @@ Then open:
 ```cpp
 http://127.0.0.1:8000
 ```
+
+### 🚧 Deployment Notes
+Hosting multiple transformer models requires more than 512 MB RAM, so free-tier platforms (e.g., Render free tier) may not work.
+A paid service or GPU host can be used for deploying the UI. However, running locally is the easiest and most reliable option for most users.
+
+### 📌 Future Improvements
+* Expand dataset with additional climate-domain sources
+* Introduce model distillation to reduce memory use
+* Add visualization of confidence/probability curves
