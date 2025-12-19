@@ -174,6 +174,8 @@ def compute_and_maybe_plot_roc(y_true, probs, output_path: Optional[str], labels
         auc_score = roc_auc_score(y_true, y_score)
         fpr, tpr, _ = roc_curve(y_true, y_score)
         if output_path:
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
             plt.figure()
             plt.plot(fpr, tpr, label=f"ROC (AUC = {auc_score:.3f})")
             plt.plot([0,1],[0,1], linestyle='--', color='gray')
@@ -182,7 +184,12 @@ def compute_and_maybe_plot_roc(y_true, probs, output_path: Optional[str], labels
             plt.title('ROC Curve')
             plt.legend(loc='lower right')
             plt.savefig(output_path)
-            print(f"Saved ROC plot to {output_path}")
+            plt.close()
+
+            roc_data_path = output_path.replace(".png", ".npz")
+            np.savez(roc_data_path, fpr=fpr, tpr=tpr, auc=auc_score)
+            print(f"Saved ROC image to {output_path}")
+            print(f"Saved ROC data to {roc_data_path}")
         return auc_score
     else:
         # multiclass: use one-vs-rest macro-average
@@ -190,6 +197,8 @@ def compute_and_maybe_plot_roc(y_true, probs, output_path: Optional[str], labels
         try:
             auc_score = roc_auc_score(y_true_bin, probs, average='macro', multi_class='ovr')
             if output_path:
+                os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
                 # plot macro-average by aggregating per-class curves (optional simplified plot)
                 plt.figure()
                 for i in range(n_classes):
@@ -201,7 +210,13 @@ def compute_and_maybe_plot_roc(y_true, probs, output_path: Optional[str], labels
                 plt.title(f'Multiclass ROC Curves (macro AUC={auc_score:.3f})')
                 plt.legend(loc='lower right')
                 plt.savefig(output_path)
-                print(f"Saved ROC plot to {output_path}")
+                plt.close()
+            
+                roc_data_path = output_path.replace(".png", ".npz")
+                np.savez(roc_data_path, fpr=fpr, tpr=tpr, auc=auc_score)
+                print(f"Saved ROC image to {output_path}")
+                print(f"Saved ROC data to {roc_data_path}")
+
             return auc_score
         except Exception as e:
             print("Failed to compute multiclass ROC/AUC:", e)
