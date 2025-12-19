@@ -360,10 +360,11 @@ def main():
                 y_true_plot = y_true
                 y_pred_plot = y_pred
 
-            cm_fig = plotly_confusion_matrix(y_true_plot, y_pred_plot, labels=labels_plot, title="Confusion Matrix")
+            cm_fig, cm = plotly_confusion_matrix(y_true_plot, y_pred_plot, labels=labels_plot, title="Confusion Matrix")
             cm_html = os.path.join(model_dir, "confusion_matrix.html")
             cm_png = os.path.join(model_dir, "confusion_matrix.png")
             cm_fig.write_html(cm_html)
+            np.save(os.path.join(model_dir, "confusion_matrix.npy"), cm)
             print(f"Saved confusion matrix HTML to {cm_html}")
             try:
                 # attempt to save PNG (requires kaleido or orca)
@@ -459,10 +460,11 @@ def main():
                     # fallback: leave as-is
                     pass
 
-            cm_fig = plotly_confusion_matrix(y_true_plot, y_pred_plot, labels=labels_plot, title="Confusion Matrix")
+            cm_fig, cm = plotly_confusion_matrix(y_true_plot, y_pred_plot, labels=labels_plot, title="Confusion Matrix")
             cm_html = os.path.join(model_dir, "confusion_matrix_sklearn.html")
             cm_png = os.path.join(model_dir, "confusion_matrix_sklearn.png")
             cm_fig.write_html(cm_html)
+            np.save(os.path.join(model_dir, "confusion_matrix.npy"), cm)
             print(f"Saved sklearn confusion matrix HTML to {cm_html}")
             try:
                 cm_fig.write_image(cm_png)
