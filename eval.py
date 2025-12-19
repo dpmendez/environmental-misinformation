@@ -226,7 +226,8 @@ def compute_and_maybe_plot_roc(y_true, probs, output_path: Optional[str], labels
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model-path", required=True, help="Path to saved model (transformer directory or sklearn joblib file)")
-    parser.add_argument("--model-type", choices=["transformer", "sklearn"], required=True)
+    parser.add_argument("--model-type", choices=["transformer", "classic"], required=True)
+    parser.add_argument("--model-id", default=None, help="Optional model id in lower case")
     parser.add_argument("--test-csv", required=True, help="CSV file with test data")
     parser.add_argument("--text-col", default="text", help="Column name for text in CSV")
     parser.add_argument("--label-col", default="label", help="Column name for label in CSV (integers expected or will be mapped)")
@@ -327,7 +328,12 @@ def main():
         # compute_metrics accepts either logits or 1D preds; here we prefer the thresholded predictions
         # (y_pred) so metrics reflect any manual thresholding applied.
         metrics = compute_metrics((y_pred, y_true))
-        print(json.dumps(metrics, indent=2))
+        metrics_addon = {
+            **metrics,
+            "model_type" : args.model_type,
+            "model_name" : args.model_id
+        }
+        print(json.dumps(metrics_addon, indent=2))
         # Optionally compute ROC
         auc_score = compute_and_maybe_plot_roc(y_true, probs, args.roc_out)
         if auc_score is not None:
@@ -343,7 +349,7 @@ def main():
                 return str(o)
 
             with open(metrics_out, "w") as mf:
-                json.dump(metrics, mf, indent=2, default=_np_converter)
+                json.dump(metrics_addon, mf, indent=2, default=_np_converter)
             print(f"Saved metrics to {metrics_out}")
         except Exception as e:
             print("Failed to save metrics:", e)
@@ -406,7 +412,12 @@ def main():
         model_path_for_sklearn = candidates[0]
         clf_obj, probs, y_pred = eval_sklearn(model_path_for_sklearn, texts, y_true, text_col=args.text_col)
         metrics = compute_metrics((y_pred, y_true))
-        print(json.dumps(metrics, indent=2))
+        metrics_addon = {
+            **metrics,
+            "model_type" : args.model_type,
+            "model_name" : args.model_id
+        }
+        print(json.dumps(metrics_addon, indent=2))
         auc_score = compute_and_maybe_plot_roc(y_true, probs, args.roc_out)
         if auc_score is not None:
             print(f"ROC AUC: {auc_score:.4f}")
@@ -421,7 +432,7 @@ def main():
                 return str(o)
 
             with open(metrics_out, "w") as mf:
-                json.dump(metrics, mf, indent=2, default=_np_converter)
+                json.dump(metrics_addon, mf, indent=2, default=_np_converter)
             print(f"Saved metrics to {metrics_out}")
         except Exception as e:
             print("Failed to save metrics:", e)
