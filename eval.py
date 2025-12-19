@@ -113,6 +113,8 @@ def eval_sklearn(model_path, test_texts, y_true, text_col: str = "text"):
     """
     clf = joblib.load(model_path)
 
+    probs = None
+    scores = None
     # Prepare input X for the sklearn pipeline
     if isinstance(test_texts, (list, tuple, np.ndarray)):
         # convert to DataFrame with a single column matching training
@@ -136,91 +138,69 @@ def eval_sklearn(model_path, test_texts, y_true, text_col: str = "text"):
             if scores.ndim == 1:
                 # binary scoring
                 probs = None
-                y_pred = (scores > 0).astype(int)
+                classes = clf.classes_
+                y_pred = np.where(scores > 0, classes[1], classes[0])
             else:
                 # multiclass scores -> argmax
                 probs = None
                 y_pred = np.argmax(scores, axis=1)
-            return clf, probs, y_pred
+            return clf, probs, y_pred, scores
         except Exception:
             # last resort: only predict
             y_pred = clf.predict(X)
-            return clf, None, y_pred
+            return clf, probs, y_pred, scores
 
 
-def compute_and_maybe_plot_roc(y_true, probs, output_path: Optional[str], labels=None):
-    # y_true: array-like of shape (n_samples,) with integer labels
-    # probs: None or array of shape (n_samples, n_classes)
-    if probs is None:
-        print("No probability scores available; cannot compute ROC/AUC.")
+def compute_and_maybe_plot_roc(y_true, probs, output_path,
+                               *, scores=None, labels=None):
+    """
+    y_true: (n_samples,) int labels
+    probs: (n_samples, n_classes) or None
+    scores: (n_samples,) or None
+    """
+
+    # --- Case 1: use probabilities ---
+    if probs is not None:
+        n_classes = probs.shape[1]
+
+        if n_classes != 2:
+            print("ROC/AUC only implemented for binary classification.")
+            return None
+
+        # assume positive class = 1
+        y_score = probs[:, 1]
+
+    # --- Case 2: use decision scores (SVC) ---
+    elif scores is not None:
+        y_score = scores
+
+    else:
+        print("No probability or score output; cannot compute ROC/AUC.")
         return None
 
-    n_classes = probs.shape[1]
-    if n_classes == 2:
-        # binary
-        # choose class 1 as positive by default; allow caller to override via `labels` or
-        # by passing a specific positive_label through the labels parameter if it's an int.
-        # If labels is an int, treat it as the positive class id to compute ROC for.
-        positive_label = None
-        if isinstance(labels, int):
-            positive_label = labels
+    # --- Compute ROC ---
+    auc_score = roc_auc_score(y_true, y_score)
+    fpr, tpr, _ = roc_curve(y_true, y_score)
 
-        if positive_label is None:
-            pos_idx = 1
-        else:
-            pos_idx = positive_label
+    # --- Save points for later aggregation ---
+    if output_path:
+        np.savez(
+            output_path.replace(".png", ".npz"),
+            fpr=fpr,
+            tpr=tpr,
+            auc=auc_score
+        )
 
-        y_score = probs[:, pos_idx]
-        auc_score = roc_auc_score(y_true, y_score)
-        fpr, tpr, _ = roc_curve(y_true, y_score)
-        if output_path:
-            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        plt.figure()
+        plt.plot(fpr, tpr, label=f"AUC = {auc_score:.3f}")
+        plt.plot([0, 1], [0, 1], "--", color="gray")
+        plt.xlabel("False Positive Rate")
+        plt.ylabel("True Positive Rate")
+        plt.legend(loc="lower right")
+        plt.savefig(output_path)
+        plt.close()
 
-            plt.figure()
-            plt.plot(fpr, tpr, label=f"ROC (AUC = {auc_score:.3f})")
-            plt.plot([0,1],[0,1], linestyle='--', color='gray')
-            plt.xlabel('False Positive Rate')
-            plt.ylabel('True Positive Rate')
-            plt.title('ROC Curve')
-            plt.legend(loc='lower right')
-            plt.savefig(output_path)
-            plt.close()
-
-            roc_data_path = output_path.replace(".png", ".npz")
-            np.savez(roc_data_path, fpr=fpr, tpr=tpr, auc=auc_score)
-            print(f"Saved ROC image to {output_path}")
-            print(f"Saved ROC data to {roc_data_path}")
-        return auc_score
-    else:
-        # multiclass: use one-vs-rest macro-average
-        y_true_bin = label_binarize(y_true, classes=np.arange(n_classes))
-        try:
-            auc_score = roc_auc_score(y_true_bin, probs, average='macro', multi_class='ovr')
-            if output_path:
-                os.makedirs(os.path.dirname(output_path), exist_ok=True)
-
-                # plot macro-average by aggregating per-class curves (optional simplified plot)
-                plt.figure()
-                for i in range(n_classes):
-                    fpr, tpr, _ = roc_curve(y_true_bin[:, i], probs[:, i])
-                    plt.plot(fpr, tpr, label=f"class {i}")
-                plt.plot([0,1],[0,1], linestyle='--', color='gray')
-                plt.xlabel('False Positive Rate')
-                plt.ylabel('True Positive Rate')
-                plt.title(f'Multiclass ROC Curves (macro AUC={auc_score:.3f})')
-                plt.legend(loc='lower right')
-                plt.savefig(output_path)
-                plt.close()
-            
-                roc_data_path = output_path.replace(".png", ".npz")
-                np.savez(roc_data_path, fpr=fpr, tpr=tpr, auc=auc_score)
-                print(f"Saved ROC image to {output_path}")
-                print(f"Saved ROC data to {roc_data_path}")
-
-            return auc_score
-        except Exception as e:
-            print("Failed to compute multiclass ROC/AUC:", e)
-            return None
+    return auc_score
 
 
 def main():
@@ -335,7 +315,7 @@ def main():
         }
         print(json.dumps(metrics_addon, indent=2))
         # Optionally compute ROC
-        auc_score = compute_and_maybe_plot_roc(y_true, probs, args.roc_out)
+        auc_score = compute_and_maybe_plot_roc(y_true, probs, args.roc_out, scores=scores)
         if auc_score is not None:
             print(f"ROC AUC: {auc_score:.4f}")
 
@@ -410,7 +390,7 @@ def main():
             print(f"Multiple sklearn model files found in {search_dir}; using the first: {candidates[0]}")
 
         model_path_for_sklearn = candidates[0]
-        clf_obj, probs, y_pred = eval_sklearn(model_path_for_sklearn, texts, y_true, text_col=args.text_col)
+        clf_obj, probs, y_pred, scores = eval_sklearn(model_path_for_sklearn, texts, y_true, text_col=args.text_col)
         metrics = compute_metrics((y_pred, y_true))
         metrics_addon = {
             **metrics,
@@ -418,7 +398,7 @@ def main():
             "model_name" : args.model_id
         }
         print(json.dumps(metrics_addon, indent=2))
-        auc_score = compute_and_maybe_plot_roc(y_true, probs, args.roc_out)
+        auc_score = compute_and_maybe_plot_roc(y_true, probs, args.roc_out, scores=scores)
         if auc_score is not None:
             print(f"ROC AUC: {auc_score:.4f}")
 
