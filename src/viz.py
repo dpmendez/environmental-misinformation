@@ -51,6 +51,7 @@ def plotly_confusion_matrix(y_true, y_pred, labels=None, title="Confusion Matrix
     )
     
     fig.show()
+    return fig, cm
 
 
 def plot_feature_importance(feature_weights, title="Feature Importance"):
@@ -106,5 +107,3 @@ def plot_wordcloud_by_label(feature_weights, label):
     plt.title(f"Word Cloud for class: {label}")
     plt.axis("off")
     plt.show()
-
-
