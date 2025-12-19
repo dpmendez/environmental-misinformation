@@ -10,9 +10,6 @@ from evaluate import load
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import f1_score, accuracy_score, recall_score, precision_score, balanced_accuracy_score, classification_report
 
-import torch
-from torch.utils.data import Dataset, DataLoader
-from transformers import AutoTokenizer
 
 def map_sf_label(label):
     """
@@ -114,7 +111,7 @@ def compute_metrics(eval_pred):
     """
     Compute evaluation metrics.
 
-    Accepts either an (logits, labels) tuple, an EvalPrediction-like object
+    Accepts either a (logits, labels) tuple, an EvalPrediction-like object
     with .predictions and .label_ids, or (preds, labels) where preds may be
     either logits/probabilities (2D) or already-decoded label ids (1D).
     Returns a dict of scalar metrics and a classification_report dict under
@@ -159,18 +156,3 @@ def compute_metrics(eval_pred):
     #     pass
 
     return metrics
-    
-# Create a PyTorch Dataset
-class NewsDataset(Dataset):
-
-	def __init__(self, encodings, labels):
-		self.encodings = encodings
-		self.labels = labels
-
-	def __len__(self):
-		return len(self.labels)
-
-	def __getitem__(self, idx):
-		item = {key: val[idx] for key, val in self.encodings.items()}
-		item['labels'] = torch.tensor(self.labels[idx])
-		return item
