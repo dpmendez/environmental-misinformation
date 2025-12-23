@@ -8,9 +8,62 @@ cost_FN = 1.0     # moderately harmful to block true claim
 benefit_TN = 3.0  # good to catch harmful claim
 benefit_TP = 1.0  # good to allow true claim
 
+
+def find_optimal_threshold_from_scores(
+    y_true,
+    scores,
+    false_label_id=0,
+    return_curve=True
+):
+    """
+    y_true: array-like of shape (n_samples,), values {0,1}
+    scores: array-like of shape (n_samples,)
+            Higher score = more likely class `false_label_id`
+    """
+
+    thresholds=np.linspace(0, 1, 101)
+
+    y_true = np.asarray(y_true)
+    scores = np.asarray(scores)
+
+    harmful_errors = []
+    benign_errors = []
+    total_harm = []
+
+    for t in thresholds:
+        preds = np.where(scores >= t, false_label_id, 1 - false_label_id)
+
+        tn, fp, fn, tp = confusion_matrix(y_true, preds).ravel()
+
+        harmful_errors.append(fp)
+        benign_errors.append(fn)
+
+        harm = (
+            fn * cost_FN +
+            fp * cost_FP -
+            tp * benefit_TP -
+            tn * benefit_TN
+        )
+        total_harm.append(harm)
+
+    best_idx = np.argmin(total_harm)
+    best_threshold = thresholds[best_idx]
+
+    if return_curve:
+        return {
+            "best_threshold": best_threshold,
+            "thresholds": thresholds,
+            "harm": total_harm,
+            "fp": harmful_errors,
+            "fn": benign_errors,
+        }
+
+    return best_threshold
+
+
 def find_optimal_threshold(model, tokenizer,
                            val_dataset, false_label_id=0,
-                           batch_size=24, device=None):
+                           batch_size=20, device=None):
     """
     Find the optimal probability threshold for predicting class `false_label_id`
     (likely_false = 0).

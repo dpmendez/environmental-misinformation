@@ -4,9 +4,9 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import LinearSVC
-from transformers import Trainer
-#from xgboost import XGBClassifier
+# from xgboost import XGBClassifier
 
+from transformers import Trainer
 import torch
 import torch.nn as nn
 
@@ -30,7 +30,7 @@ def train_classic_model(x_train, y_train,
 #        classifier = XGBClassifier(n_estimators=300, max_depth=6, learning_rate=0.1,
 #                                   subsample=0.8, colsample_bytree=0.8, eval_metric="mlogloss", random_state=42)
     else:
-        raise ValueError("Choose from: 'logreg', 'rf', 'svc'")
+        raise ValueError("Choose from: 'logreg', 'rf', 'svc', 'xgb'")
     
     clf = Pipeline([
         ("preprocessor", preprocessor),
