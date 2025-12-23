@@ -39,6 +39,13 @@ from src.viz import plotly_confusion_matrix
 import glob
 
 
+def load_threshold_if_exists(path):
+    if path and os.path.exists(path):
+        with open(path, "r") as f:
+            return json.load(f).get("best_threshold")
+    return None
+
+
 def load_label_map(path: Optional[str]):
     if path is None:
         return None
@@ -129,7 +136,8 @@ def eval_sklearn(model_path, test_texts, y_true, text_col: str = "text"):
         probs = clf.predict_proba(X)
         # For binary, take probs[:,1] as positive class; but need to know ordering of classes
         y_pred = clf.predict(X)
-        return clf, probs, y_pred
+        scores = None
+        return clf, probs, y_pred, scores
     except Exception:
         # No probability support; fallback to decision_function if available
         try:
@@ -208,6 +216,7 @@ def main():
     parser.add_argument("--model-path", required=True, help="Path to saved model (transformer directory or sklearn joblib file)")
     parser.add_argument("--model-type", choices=["transformer", "classic"], required=True)
     parser.add_argument("--model-id", default=None, help="Optional model id in lower case")
+    parser.add_argument("--apply-threshold", action="store_true", help="Apply threshold.json if found (binary classification only)")
     parser.add_argument("--test-csv", required=True, help="CSV file with test data")
     parser.add_argument("--text-col", default="text", help="Column name for text in CSV")
     parser.add_argument("--label-col", default="label", help="Column name for label in CSV (integers expected or will be mapped)")
@@ -245,6 +254,10 @@ def main():
             args.threshold = os.path.join(model_dir_for_defaults, "threshold.json")
         if args.label_map is None:
             args.label_map = os.path.join(model_dir_for_defaults, "label_map.json")
+
+    # For classic models, also default threshold.json to model directory
+    if args.model_type == "classic" and args.threshold is None:
+        args.threshold = os.path.join(model_dir_for_defaults, "threshold.json")
 
     # Use default evaluation batch size inside eval_transformer (64)
 
@@ -390,7 +403,38 @@ def main():
             print(f"Multiple sklearn model files found in {search_dir}; using the first: {candidates[0]}")
 
         model_path_for_sklearn = candidates[0]
+
         clf_obj, probs, y_pred, scores = eval_sklearn(model_path_for_sklearn, texts, y_true, text_col=args.text_col)
+
+        best_threshold = None
+        if args.apply_threshold and args.threshold and os.path.exists(args.threshold):
+            with open(args.threshold, "r") as f:
+                best_threshold = json.load(f).get("best_threshold")
+
+        if args.apply_threshold and best_threshold is not None:
+            # Determine false_label_id
+            if args.false_label_id is not None:
+                false_label_id = args.false_label_id
+            else:
+                # default assumption: binary, false = class 0
+                false_label_id = 0
+
+            if probs is not None:
+                # use probability of false class
+                score_false = probs[:, false_label_id]
+            elif scores is not None:
+                # decision_function score (higher = more likely false)
+                score_false = scores
+            else:
+                raise RuntimeError("Thresholding requested but no scores available")
+
+            # Apply threshold rule
+            y_pred = np.where(
+                score_false >= best_threshold,
+                false_label_id,
+                1 - false_label_id
+            )
+
         metrics = compute_metrics((y_pred, y_true))
         metrics_addon = {
             **metrics,
