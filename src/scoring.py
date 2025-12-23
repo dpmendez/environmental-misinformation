@@ -6,7 +6,7 @@ def get_false_class_scores(model, X, model_type):
     Higher = more likely false.
     """
 
-    if model_type in ["logreg", "rf", "xgb", "log"]:
+    if model_type in ["log", "rf", "xgb", "log"]:
         if not hasattr(model, "predict_proba"):
             raise ValueError("Model does not support predict_proba")
         probs = model.predict_proba(X)

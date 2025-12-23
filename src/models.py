@@ -11,7 +11,7 @@ import torch
 import torch.nn as nn
 
 def train_classic_model(x_train, y_train,
-                        model_type="logreg",
+                        model_type="log",
                         ngram_range=(1,2),
                         max_features=10000,
                         class_weight="balanced"):
@@ -20,7 +20,7 @@ def train_classic_model(x_train, y_train,
         ("transform_text", TfidfVectorizer(ngram_range=ngram_range, max_features=max_features, stop_words="english"), "text")
     ])
     
-    if model_type == "logreg":
+    if model_type == "log":
         classifier = LogisticRegression(max_iter=1000, class_weight=class_weight)
     elif model_type == "rf":
         classifier = RandomForestClassifier(n_estimators=200, class_weight=class_weight, random_state=42)
@@ -30,7 +30,7 @@ def train_classic_model(x_train, y_train,
 #        classifier = XGBClassifier(n_estimators=300, max_depth=6, learning_rate=0.1,
 #                                   subsample=0.8, colsample_bytree=0.8, eval_metric="mlogloss", random_state=42)
     else:
-        raise ValueError("Choose from: 'logreg', 'rf', 'svc', 'xgb'")
+        raise ValueError("Choose from: 'log', 'rf', 'svc', 'xgb'")
     
     clf = Pipeline([
         ("preprocessor", preprocessor),

@@ -1,7 +1,7 @@
 import numpy as np
 import plotly.graph_objects as go
 import torch
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, f1_score
 
 cost_FN = 5.0     # very harmful to miss false claim
 cost_FP = 1.0     # moderately harmful to block true claim
@@ -18,16 +18,14 @@ def get_harm(tp, fn, fp, tn):
         )
     
 
-def plot_threshold_optimization(data=dictionary, parameter='cost'):
+def plot_threshold_optimization(dictionary, parameter='cost'):
 
-    if parameter='cost':
+    if parameter=='cost':
         best_threshold = dictionary["best_threshold"]
         total_harm = dictionary["harm"]
-        plot_title = "Threshold Optimization — Harm Curve"
-    elif parameter='f1':
+    elif parameter=='f1':
         best_threshold = dictionary["best_threshold_f1"]
         total_harm = dictionary["f1"]
-        plot_title = "Threshold Optimization — F1 Curve"
     else:
         raise KeyError("Parameter should be cost or f1.")
         
@@ -53,9 +51,9 @@ def plot_threshold_optimization(data=dictionary, parameter='cost'):
     )
 
     fig.update_layout(
-        title=plot_title,
+        title="Threshold Optimization — Harm Curve",
         xaxis_title="Threshold for predicting 'likely_false' (class 0)",
-        yaxis_title="Error Count / Parameter",
+        yaxis_title="Error Count / Harm",
         template="plotly_white"
     )
 
@@ -108,8 +106,8 @@ def find_optimal_threshold_from_scores(
             "best_threshold": best_threshold,
             "thresholds": thresholds,
             "harm": total_harm,
-            "fp": harmful_errors,
-            "fn": benign_errors,
+            "fn": harmful_errors,
+            "fp": benign_errors,
             "best_threshold_f1": best_threshold_f1,
             "f1": f1
         }
@@ -188,14 +186,14 @@ def find_optimal_threshold(model, tokenizer,
 
         # positive class is the one that we are trying to detect
         # the one we raise an alarm for -> likely_false (0)
-        tp, fn, fp, tn = confusion_matrix(y_true, preds).ravel()
+        tp, fn, fp, tn = confusion_matrix(all_labels, preds).ravel()
 
         harmful_errors.append(fn)
         benign_errors.append(fp)
         harm = get_harm(tp, fn, fp, tn)
         total_harm.append(harm)
 
-        f1.append(f1_score(y_true, preds, average="weighted"))
+        f1.append(f1_score(all_labels, preds, average="weighted"))
 
     # ------------------------------------------
     # Find best threshold
@@ -210,8 +208,8 @@ def find_optimal_threshold(model, tokenizer,
             "best_threshold": best_threshold,
             "thresholds": thresholds,
             "harm": total_harm,
-            "fp": harmful_errors,
-            "fn": benign_errors,
+            "fn": harmful_errors,
+            "fp": benign_errors,
             "best_threshold_f1": best_threshold_f1,
             "f1": f1
         }
