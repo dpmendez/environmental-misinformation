@@ -17,6 +17,42 @@ def get_harm(fn, fp, tp, tn):
             tn * benefit_TN
         )
     
+
+def plot_threshold_optimization(dictionary):
+
+    best_threshold = dictionary["best_threshold"]
+    thresholds = dictionary["thresholds"]
+    total_harm = dictionary["harm"]
+    harmful_errors = dictionary["fp"]
+    benign_errors = dictionary["fn"]
+    
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=thresholds, y=harmful_errors, name="Harmful (FN)"))
+    fig.add_trace(go.Scatter(x=thresholds, y=benign_errors, name="Benign (FP)"))
+    fig.add_trace(go.Scatter(
+        x=thresholds,
+        y=total_harm,
+        name="Weighted Harm",
+        line=dict(width=4)
+    ))
+
+    fig.add_vline(
+        x=best_threshold,
+        line_dash="dash",
+        line_color="black",
+        annotation_text=f"Best = {best_threshold:.2f}"
+    )
+
+    fig.update_layout(
+        title="Threshold Optimization — Harm Curve",
+        xaxis_title="Threshold for predicting 'likely_false' (class 0)",
+        yaxis_title="Error Count / Harm",
+        template="plotly_white"
+    )
+
+    fig.show()
+
+
 def find_optimal_threshold_from_scores(
     y_true,
     scores,
@@ -65,7 +101,8 @@ def find_optimal_threshold_from_scores(
 
 def find_optimal_threshold(model, tokenizer,
                            val_dataset, false_label_id=0,
-                           batch_size=20, device=None):
+                           batch_size=20, device=None,
+                           return_curve = True):
     """
     Find the optimal probability threshold for predicting class `false_label_id`
     (likely_false = 0).
@@ -128,7 +165,7 @@ def find_optimal_threshold(model, tokenizer,
     for t in thresholds:
 
         # Predict likely_false (0) when P(false) >= t
-        preds = np.where(all_probs >= t, 0, 1)
+        preds = np.where(all_probs >= t, false_label_id, 1 - false_label_id)
 
         tn, fp, fn, tp = confusion_matrix(all_labels, preds).ravel()
 
@@ -143,36 +180,16 @@ def find_optimal_threshold(model, tokenizer,
     best_idx = np.argmin(total_harm)
     best_threshold = thresholds[best_idx]
 
-    # ------------------------------------------
-    # Visualization
-    # ------------------------------------------
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=thresholds, y=harmful_errors, name="Harmful (FN)"))
-    fig.add_trace(go.Scatter(x=thresholds, y=benign_errors, name="Benign (FP)"))
-    fig.add_trace(go.Scatter(
-        x=thresholds,
-        y=total_harm,
-        name="Weighted Harm",
-        line=dict(width=4)
-    ))
+    if return_curve:
+        return {
+            "best_threshold": best_threshold,
+            "thresholds": thresholds,
+            "harm": total_harm,
+            "fp": harmful_errors,
+            "fn": benign_errors,
+        }
 
-    fig.add_vline(
-        x=best_threshold,
-        line_dash="dash",
-        line_color="black",
-        annotation_text=f"Best = {best_threshold:.2f}"
-    )
-
-    fig.update_layout(
-        title="Threshold Optimization — Harm Curve",
-        xaxis_title="Threshold for predicting 'likely_false' (class 0)",
-        yaxis_title="Error Count / Harm",
-        template="plotly_white"
-    )
-
-    fig.show()
-
-    return best_threshold, fig
+    return best_threshold
 
 
 def classify_with_threshold(model, tokenizer, text, threshold, false_label_id, device=None):
