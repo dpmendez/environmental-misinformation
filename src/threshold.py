@@ -9,6 +9,14 @@ benefit_TN = 3.0  # good to catch harmful claim
 benefit_TP = 1.0  # good to allow true claim
 
 
+def get_harm(fn, fp, tp, tn):
+    return (
+            fn * cost_FN +
+            fp * cost_FP -
+            tp * benefit_TP -
+            tn * benefit_TN
+        )
+    
 def find_optimal_threshold_from_scores(
     y_true,
     scores,
@@ -37,13 +45,7 @@ def find_optimal_threshold_from_scores(
 
         harmful_errors.append(fp)
         benign_errors.append(fn)
-
-        harm = (
-            fn * cost_FN +
-            fp * cost_FP -
-            tp * benefit_TP -
-            tn * benefit_TN
-        )
+        harm = get_harm(fn, fp, tp, tn)
         total_harm.append(harm)
 
     best_idx = np.argmin(total_harm)
@@ -132,12 +134,7 @@ def find_optimal_threshold(model, tokenizer,
 
         harmful_errors.append(fp)
         benign_errors.append(fn)
-
-        harm = (fn * cost_FN + 
-                fp * cost_FP -
-                tp * benefit_TP -
-                tn * benefit_TN)
-        
+        harm = get_harm(fn, fp, tp, tn)        
         total_harm.append(harm)
 
     # ------------------------------------------
