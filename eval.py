@@ -57,7 +57,8 @@ def load_label_map(path: Optional[str]):
     return data, None
 
 
-def eval_transformer(model_path, test_texts, y_true, label2id=None, threshold_path=None, device="cpu", false_label_id: Optional[int]=None):
+def eval_transformer(model_path, test_texts, y_true, label2id=None, threshold_path=None,
+                     apply_threshold: bool = False, device="cpu", false_label_id: Optional[int]=None):
     tokenizer = AutoTokenizer.from_pretrained(model_path)
     model = AutoModelForSequenceClassification.from_pretrained(model_path)
     model.to(device)
@@ -78,16 +79,15 @@ def eval_transformer(model_path, test_texts, y_true, label2id=None, threshold_pa
     logits = np.vstack(logits_list)
     probs = softmax(logits, axis=1)
 
-    # If threshold provided, use it for a binary decision on the specified "false" class
-    if threshold_path is not None:
+    # Apply threshold if explicitly told too
+    best_threshold = None
+    if apply_threshold and threshold_path is not None:
         try:
             with open(threshold_path, "r") as f:
                 tdata = json.load(f)
             best_threshold = tdata.get("best_threshold")
         except Exception:
             best_threshold = None
-    else:
-        best_threshold = None
 
     # Decide predictions
     if best_threshold is not None:
@@ -226,6 +226,7 @@ def main():
     parser.add_argument("--roc-out", default=None, help="Optional path to save ROC plot PNG")
     parser.add_argument("--device", default="cpu", help="torch device to use (cpu or cuda)")
     args = parser.parse_args()
+
     # Normalize model directory: if model-path is a directory use it, otherwise use its parent dir
     model_path_abs = os.path.abspath(args.model_path)
     if os.path.isdir(model_path_abs):
@@ -260,6 +261,9 @@ def main():
         args.threshold = os.path.join(model_dir_for_defaults, "threshold.json")
 
     # Use default evaluation batch size inside eval_transformer (64)
+
+    scores = None
+    probs = None
 
     # Initialize label maps (may be populated below if --label-map provided)
     label2id = None
@@ -315,6 +319,7 @@ def main():
             y_true,
             label2id=label2id,
             threshold_path=args.threshold,
+            apply_threshold=args.apply_threshold,
             device=args.device,
             false_label_id=args.false_label_id,
         )
@@ -324,7 +329,8 @@ def main():
         metrics_addon = {
             **metrics,
             "model_type" : args.model_type,
-            "model_name" : args.model_id
+            "model_name" : args.model_id,
+            "threshold_applied": args.apply_threshold
         }
         print(json.dumps(metrics_addon, indent=2))
         # Optionally compute ROC
@@ -439,7 +445,8 @@ def main():
         metrics_addon = {
             **metrics,
             "model_type" : args.model_type,
-            "model_name" : args.model_id
+            "model_name" : args.model_id,
+            "threshold_applied": args.apply_threshold
         }
         print(json.dumps(metrics_addon, indent=2))
         auc_score = compute_and_maybe_plot_roc(y_true, probs, args.roc_out, scores=scores)
