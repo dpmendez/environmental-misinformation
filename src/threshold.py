@@ -94,7 +94,7 @@ def find_optimal_threshold_from_scores(
         harm = get_harm(tp, fn, fp, tn)
         total_harm.append(harm)
 
-        f1.append(f1_score(y_true, preds, average="weighted"))
+        f1.append(f1_score(y_true, preds, pos_label=false_label_id))
 
     best_idx = np.argmin(total_harm)
     best_threshold = thresholds[best_idx]
@@ -193,7 +193,7 @@ def find_optimal_threshold(model, tokenizer,
         harm = get_harm(tp, fn, fp, tn)
         total_harm.append(harm)
 
-        f1.append(f1_score(all_labels, preds, average="weighted"))
+        f1.append(f1_score(all_labels, preds, pos_label=false_label_id))
 
     # ------------------------------------------
     # Find best threshold
