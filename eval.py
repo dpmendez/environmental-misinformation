@@ -57,7 +57,7 @@ def load_label_map(path: Optional[str]):
     return data, None
 
 
-def eval_transformer(model_path, test_texts, y_true, label2id=None, threshold_path=None,
+def eval_transformer(model_path, test_texts, label2id=None, threshold_path=None,
                      apply_threshold: bool = False, device="cpu", false_label_id: Optional[int]=None):
     tokenizer = AutoTokenizer.from_pretrained(model_path)
     model = AutoModelForSequenceClassification.from_pretrained(model_path)
@@ -112,7 +112,7 @@ def eval_transformer(model_path, test_texts, y_true, label2id=None, threshold_pa
     return logits, probs, y_pred
 
 
-def eval_sklearn(model_path, test_texts, y_true, text_col: str = "text"):
+def eval_sklearn(model_path, test_texts, text_col: str = "text"):
     """Load a sklearn pipeline and predict.
 
     If test_texts is a 1D list/array of strings, convert to a DataFrame with column `text_col`
@@ -159,7 +159,7 @@ def eval_sklearn(model_path, test_texts, y_true, text_col: str = "text"):
             return clf, probs, y_pred, scores
 
 
-def compute_and_maybe_plot_roc(y_true, probs, output_path,
+def compute_and_maybe_plot_roc(y_true, probs, output_path, false_label_id,
                                *, scores=None, labels=None):
     """
     y_true: (n_samples,) int labels
@@ -175,20 +175,23 @@ def compute_and_maybe_plot_roc(y_true, probs, output_path,
             print("ROC/AUC only implemented for binary classification.")
             return None
 
-        # assume positive class = 1
-        y_score = probs[:, 1]
+        y_score = probs[:, false_label_id]
 
     # --- Case 2: use decision scores (SVC) ---
     elif scores is not None:
-        y_score = scores
+        y_score = -scores
 
     else:
         print("No probability or score output; cannot compute ROC/AUC.")
         return None
 
+    # false_label_id is the "positive" concept for roc
+    y_true_bin = (y_true == false_label_id).astype(int)
     # --- Compute ROC ---
-    auc_score = roc_auc_score(y_true, y_score)
-    fpr, tpr, _ = roc_curve(y_true, y_score)
+    auc_score = roc_auc_score(y_true_bin, y_score)
+    fpr, tpr, _ = roc_curve(y_true_bin, y_score)
+
+    print("ROC positive class: LIKELY_FALSE (encoded as 1)")
 
     # --- Save points for later aggregation ---
     if output_path:
@@ -222,7 +225,7 @@ def main():
     parser.add_argument("--label-col", default="label", help="Column name for label in CSV (integers expected or will be mapped)")
     parser.add_argument("--label-map", default=None, help="Optional JSON file with label2id mapping (saved from training)")
     parser.add_argument("--threshold", default=None, help="Optional JSON file with best_threshold from thresholding step")
-    parser.add_argument("--false-label-id", type=int, default=None, help="Optional integer id of the 'false' class used when applying thresholding")
+    parser.add_argument("--false-label-id", type=int, default=0, help="Optional integer id of the 'false' class used when applying thresholding")
     parser.add_argument("--roc-out", default=None, help="Optional path to save ROC plot PNG")
     parser.add_argument("--device", default="cpu", help="torch device to use (cpu or cuda)")
     args = parser.parse_args()
@@ -316,7 +319,6 @@ def main():
         logits, probs, y_pred = eval_transformer(
             args.model_path,
             texts,
-            y_true,
             label2id=label2id,
             threshold_path=args.threshold,
             apply_threshold=args.apply_threshold,
@@ -334,7 +336,7 @@ def main():
         }
         print(json.dumps(metrics_addon, indent=2))
         # Optionally compute ROC
-        auc_score = compute_and_maybe_plot_roc(y_true, probs, args.roc_out, scores=scores)
+        auc_score = compute_and_maybe_plot_roc(y_true, probs, args.roc_out, args.false_label_id, scores=scores)
         if auc_score is not None:
             print(f"ROC AUC: {auc_score:.4f}")
 
@@ -410,7 +412,7 @@ def main():
 
         model_path_for_sklearn = candidates[0]
 
-        clf_obj, probs, y_pred, scores = eval_sklearn(model_path_for_sklearn, texts, y_true, text_col=args.text_col)
+        clf_obj, probs, y_pred, scores = eval_sklearn(model_path_for_sklearn, texts, text_col=args.text_col)
 
         best_threshold = None
         if args.apply_threshold and args.threshold and os.path.exists(args.threshold):
@@ -449,7 +451,7 @@ def main():
             "threshold_applied": args.apply_threshold
         }
         print(json.dumps(metrics_addon, indent=2))
-        auc_score = compute_and_maybe_plot_roc(y_true, probs, args.roc_out, scores=scores)
+        auc_score = compute_and_maybe_plot_roc(y_true, probs, args.roc_out, args.false_label_id, scores=scores)
         if auc_score is not None:
             print(f"ROC AUC: {auc_score:.4f}")
 
