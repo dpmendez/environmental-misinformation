@@ -6,6 +6,10 @@ import torch.nn.functional as F
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from huggingface_hub import hf_hub_download
 
+# Apply global settings before loading any models/tensors
+torch.set_grad_enabled(False)
+torch.set_default_dtype(torch.float32)
+
 class InferenceModel:
     def __init__(self, model_dir, model_name, false_label_id, pull_hf=True, use_token=False):
         """
@@ -13,7 +17,7 @@ class InferenceModel:
             - config.json
             - pytorch_model.bin
             - tokenizer files
-            - threshold.json
+            - threshold.json / threshold_app.json for app only (mean)
             - label_map.json
         """
         self.model_name = model_name
@@ -31,10 +35,12 @@ class InferenceModel:
         self.model.eval()
 
         # Optional threshold
-        threshold_path = os.path.join(model_dir, "threshold.json")
+        # threshold_path = os.path.join(model_dir, "threshold.json")
+        threshold_path = os.path.join(model_dir, "threshold_app.json")
         if pull_hf:
             try:
-                threshold_path = hf_hub_download(repo_id=model_dir, filename="threshold.json", use_auth_token=use_token)
+                # threshold_path = hf_hub_download(repo_id=model_dir, filename="threshold.json", use_auth_token=use_token)
+                threshold_path = hf_hub_download(repo_id=model_dir, filename="threshold_app.json", use_auth_token=use_token)
             except:
                 threshold_path = None
 

@@ -16,7 +16,7 @@ class Claim(BaseModel):
     text: str
 
 models = {
-    "baseline": InferenceModel(MODEL_1_DIR, "baseline", FALSE_LABEL_ID, PULL_HF, USE_TOKEN),
+    # "baseline": InferenceModel(MODEL_1_DIR, "baseline", FALSE_LABEL_ID, PULL_HF, USE_TOKEN),
     "thresholded": InferenceModel(MODEL_2_DIR, "thresholded", FALSE_LABEL_ID, PULL_HF, USE_TOKEN),
 }
 

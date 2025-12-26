@@ -49,6 +49,19 @@ h1 {
     margin-bottom: 25px;
 }
 
+.status {
+    margin-top: 8px;
+    font-weight: 600;
+}
+
+.status.flagged {
+    color: #b45309; /* amber */
+}
+
+.status.not-flagged {
+    color: #166534; /* green */
+}
+
 /* ----- INPUT ----- */
 textarea {
     width: 100%;
@@ -61,6 +74,23 @@ textarea {
     color: var(--text);
     resize: none;
     box-sizing: border-box;
+}
+
+.explanation {
+    font-size: 0.95rem;
+    line-height: 1.5;
+    margin-bottom: 20px;
+    opacity: 0.9;
+}
+
+.explanation .disclaimer {
+    font-style: italic;
+    margin-top: 10px;
+}
+
+.disclaimer {
+    font-size: 0.9em;
+    opacity: 0.8;
 }
 
 /* ----- BUTTONS ----- */
