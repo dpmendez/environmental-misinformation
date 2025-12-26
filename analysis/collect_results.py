@@ -22,6 +22,7 @@ def load_all_models(results_root):
             models.append({
                 "name": metrics["model_name"],
                 "type": metrics["model_type"],
+                "threshold": metrics["threshold_applied"],
                 "fpr": roc["fpr"],
                 "tpr": roc["tpr"] ,
                 "auc": roc["auc"].item(),

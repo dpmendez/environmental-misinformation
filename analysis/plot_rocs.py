@@ -1,5 +1,11 @@
+import argparse
 import matplotlib.pyplot as plt
 from collect_results import load_all_models, save_and_show
+
+BEST_MODEL_NAMES = [
+    "log",
+    "distilbert",
+]
 
 def plot_rocs(models, title, output_path=None):
     plt.figure(figsize=(7,6))
@@ -24,11 +30,36 @@ def plot_rocs(models, title, output_path=None):
         plt.show()
 
 
-models = load_all_models("../notebooks/results/")
+def main():
 
-classic = [m for m in models if m["type"] == "classic"]
-transformer = [m for m in models if m["type"] == "transformer"]
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--apply-threshold", action="store_true", help="Plot only thresholded models")
+    args = parser.parse_args()
 
-plot_rocs(classic, "ROC – Classic ML Models", "figures/roc_classic_models.png")
-plot_rocs(nlp, "ROC – Transformer Models", "figures/roc_transformer_models.png")
-plot_rocs(models, "ROC – All Models", "figures/roc_all_models.png")
+    apply_threshold=args.apply_threshold
+    suffix = "_threshold" if apply_threshold else ""
+
+    models = load_all_models("../notebooks/results/")
+
+    if args.apply_threshold:
+        models = [
+            m for m in models
+            if m["threshold"]==True
+        ]
+    else:
+        models = [
+            m for m in models
+            if m["threshold"]==False
+        ]
+
+    classic = [m for m in models if m["type"] == "classic"]
+    transformer = [m for m in models if m["type"] == "transformer"]
+    best_models = [m for m in models if m["name"] in BEST_MODEL_NAMES]
+
+    plot_rocs(classic, "ROC – Classic ML Models", "figures/roc_classic_models.png")
+    plot_rocs(transformer, "ROC – Transformer Models", "figures/roc_transformer_models.png")
+    plot_rocs(models, "ROC – All Models", "figures/roc_all_models.png")
+    plot_rocs(best_models, "ROC – Best Classic and Transformer Models", "figures/roc_best_models.png")
+
+if __name__ == "__main__":
+    main()
